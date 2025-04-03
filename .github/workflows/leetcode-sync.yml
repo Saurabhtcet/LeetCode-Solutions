@@ -1,0 +1,44 @@
+name: LeetCode Auto-Sync
+
+on:
+  schedule:
+    - cron: "0 0 * * *"  # Runs every day at midnight UTC
+  workflow_dispatch:  # Allows manual trigger
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Install Dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y jq curl
+
+      - name: Fetch LeetCode Solutions
+        run: |
+          # LeetCode API (Replace YOUR_USERNAME)
+          USERNAME="SaurabhkumarYadav"
+          RESPONSE=$(curl -s "https://leetcode.com/graphql" \
+            -H "Content-Type: application/json" \
+            --data '{"query":"query {matchedUser(username:\"'$USERNAME'\") {submissionCalendar}}"}')
+          
+          # Extract solved problems
+          SOLVED=$(echo $RESPONSE | jq -r '.data.matchedUser.submissionCalendar | keys_unsorted | .[-1]')
+
+          # Get latest submission
+          if [[ ! -z "$SOLVED" ]]; then
+            PROBLEM_TITLE=$(date -d @$SOLVED +"%Y-%m-%d")_leetcode_problem.java
+            curl -s "https://leetcode.com/problems/random-one-question/all/" > LeetCode_Java/$PROBLEM_TITLE
+            echo "✅ Fetched $PROBLEM_TITLE"
+          fi
+
+      - name: Commit & Push Solutions
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "actions@github.com"
+          git add .
+          git commit -m "✅ Auto-added latest LeetCode problem"
+          git push
